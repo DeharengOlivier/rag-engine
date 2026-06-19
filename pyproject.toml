@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-engine"
+version = "0.1.0"
+description = "A small, well-architected, offline-first Retrieval-Augmented Generation engine over your own documents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Olivier Dehareng" }]
+keywords = ["rag", "retrieval", "embeddings", "llm", "search"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+# numpy is the only hard dependency. Everything else is optional and lazily imported.
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+embeddings = ["sentence-transformers"]
+llm = ["anthropic", "openai"]
+dev = ["pytest"]
+
+[project.scripts]
+rag = "rag_engine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
