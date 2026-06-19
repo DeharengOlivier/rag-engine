@@ -1,0 +1,27 @@
+[
+  {
+    "question": "What are the opening hours of the library on Saturday?",
+    "expected_source": "library.md",
+    "answer_keywords": ["10:00", "16:00"]
+  },
+  {
+    "question": "Which day is recycling collected?",
+    "expected_source": "recycling.md",
+    "answer_keywords": ["Thursday"]
+  },
+  {
+    "question": "How often does Line A bus run on weekdays?",
+    "expected_source": "transport.md",
+    "answer_keywords": ["twenty minutes"]
+  },
+  {
+    "question": "What facilities does Hilltop Park have?",
+    "expected_source": "parks.md",
+    "answer_keywords": ["fitness", "garden"]
+  },
+  {
+    "question": "Why does retrieval-augmented generation reduce hallucination?",
+    "expected_source": "how-rag-works.md",
+    "answer_keywords": ["grounding", "retrieved"]
+  }
+]
