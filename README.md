@@ -25,6 +25,12 @@ LLM through configuration.
                           |
                           v
                 +-------------------+
+                |   anonymization   |  redact PII before indexing
+                |  (optional)       |  regex (offline) | presidio + spaCy
+                +---------+---------+
+                          |
+                          v
+                +-------------------+
                 |    embeddings     |  hashing (offline) | sentence-transformers
                 +---------+---------+
                           |
@@ -64,6 +70,14 @@ LLM through configuration.
   need only numpy and the standard library, so the engine (and its tests) run
   with no network and no API key. Heavy or paid dependencies are optional and
   imported lazily, only when selected.
+- **PII anonymization at the source.** Anonymization runs at ingestion, before
+  any text is embedded or written to disk, so the vector index and its metadata
+  sidecar never hold raw personal data. An offline regex backend (no
+  dependencies) redacts structured PII (emails, phones, credit cards, IBANs, IPs,
+  SSNs); an optional Microsoft Presidio backend adds named-entity detection
+  (people, locations, organizations) on top. Both replace each span with a typed
+  placeholder like `<EMAIL_ADDRESS>` or `<PERSON>`, which keeps the surrounding
+  text readable and retrievable while carrying no raw PII.
 - **Grounding guardrails.** Retrieval scores gate generation: if no chunk clears
   a similarity threshold, the engine refuses instead of guessing. When it does
   answer, every supporting chunk is attached as a citation, so answers are
@@ -89,6 +103,9 @@ rag query "What is the population of Mars?"
 
 # Run the evaluation harness.
 rag eval evals/sample_eval.json
+
+# See what PII an anonymizer would redact in a piece of text (offline).
+rag anonymize "Email me at jane.doe@acme.com or call +1 212 555 0199."
 ```
 
 You can also use it as a library:
@@ -103,6 +120,43 @@ print(result.answer)
 print(result.citations)
 print(result.refused)
 ```
+
+## Privacy: PII anonymization
+
+Indexing private documents is a privacy risk the moment anything is persisted:
+the index, its metadata sidecar, and any prompt sent to an external LLM can leak
+personal data. `rag-engine` addresses this by anonymizing text **at ingestion,
+before it is embedded or written to disk**, so raw PII never enters the index.
+
+Two backends sit behind one interface, selected with `RAG_ANONYMIZER`:
+
+- `regex` (offline, no dependencies): deterministic detection of structured PII
+  (emails, phone numbers, credit cards, IBANs, IP addresses, SSNs). Keeps the
+  engine offline-first and the tests reproducible.
+- `presidio` (optional): Microsoft Presidio plus a spaCy model, adding
+  named-entity recognition (people, locations, organizations, dates) on top of
+  the structured patterns.
+
+```bash
+# Offline regex backend.
+rag anonymize "I am Jane Doe, jane@acme.com, +1 212 555 0199, card 4111 1111 1111 1111."
+#  -> I am Jane Doe, <EMAIL_ADDRESS>, <PHONE_NUMBER>, card <CREDIT_CARD>.
+
+# Optional Presidio backend also redacts names and places.
+pip install -e ".[pii]"
+python -m spacy download en_core_web_sm
+RAG_ANONYMIZER=presidio rag anonymize "I am Jane Doe from Paris, jane@acme.com."
+#  -> I am <PERSON> from <LOCATION>, <EMAIL_ADDRESS>.
+
+# Index with anonymization on: PII is stripped before it reaches the index.
+RAG_ANONYMIZER=regex rag ingest data/sample
+#  -> Anonymized N PII entities before indexing (EMAIL_ADDRESS=..., ...).
+```
+
+The guarantee is verified by the test suite: after an anonymized ingest, the
+saved `meta.json` contains the typed placeholders and none of the original PII,
+while the surrounding non-PII text stays intact (so documents remain
+retrievable).
 
 ## Configuration
 
@@ -120,6 +174,9 @@ API-backed provider is actually called.
 | `RAG_CHUNK_SIZE` | `600` | Target chunk size in characters. |
 | `RAG_CHUNK_OVERLAP` | `100` | Overlap between consecutive chunks, in characters. |
 | `RAG_SIMILARITY_THRESHOLD` | `0.15` | Minimum cosine similarity for a chunk to count as evidence. |
+| `RAG_ANONYMIZER` | `none` | PII redaction at ingestion: `none`, `regex` (offline), or `presidio`. |
+| `RAG_ANONYMIZE_MODEL` | `en_core_web_sm` | spaCy model used by the `presidio` backend. |
+| `RAG_ANONYMIZE_THRESHOLD` | `0.5` | Minimum detector confidence for `presidio` to redact an entity. |
 | `RAG_EMBEDDING_DIM` | `256` | Vector dimension for the hashing embedder. |
 | `RAG_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Model name for the sentence-transformers embedder. |
 | `RAG_LLM_MODEL` | `claude-opus-4-8` | Model name for the anthropic/openai providers. |
@@ -130,6 +187,7 @@ Optional extras (only needed if you switch providers):
 ```bash
 pip install -e ".[embeddings]"  # sentence-transformers
 pip install -e ".[llm]"         # anthropic + openai
+pip install -e ".[pii]"         # presidio + spacy (PII anonymization)
 pip install -e ".[dev]"         # pytest
 ```
 
@@ -151,6 +209,7 @@ rag-engine/
   src/rag_engine/
     config.py               # env-driven configuration dataclass
     ingestion.py            # load + clean + chunk documents
+    anonymizer.py           # PII redaction: regex (offline) + presidio (optional)
     embeddings.py           # hashing (default) and sentence-transformers embedders
     vectorstore.py          # numpy vector store with cosine similarity + persistence
     retriever.py            # query -> top-k chunks
@@ -158,7 +217,7 @@ rag-engine/
     guardrails.py           # grounding gate, citations, safe refusal
     pipeline.py             # RagPipeline tying it all together
     evaluation.py           # recall@k + keyword-score harness
-    cli.py                  # `rag ingest|query|eval`
+    cli.py                  # `rag ingest|query|eval|anonymize`
   tests/                    # pytest suite (passes offline)
 ```
 

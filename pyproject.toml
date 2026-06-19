@@ -23,6 +23,7 @@ dependencies = ["numpy>=1.21"]
 [project.optional-dependencies]
 embeddings = ["sentence-transformers"]
 llm = ["anthropic", "openai"]
+pii = ["presidio-analyzer", "presidio-anonymizer", "spacy"]
 dev = ["pytest"]
 
 [project.scripts]
