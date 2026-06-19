@@ -62,6 +62,11 @@ class RagConfig:
         chunk_overlap: Overlap between consecutive chunks in characters.
         similarity_threshold: Minimum cosine similarity for a chunk to count as
             "supporting" evidence. If no chunk clears it, the engine refuses.
+        anonymizer: PII anonymizer applied at ingestion
+            (``"none"``, ``"regex"`` offline, or ``"presidio"``).
+        anonymize_model: spaCy model name used by the presidio anonymizer.
+        anonymize_threshold: Minimum detector confidence for the presidio
+            anonymizer to redact an entity.
         index_dir: Directory where the vector index is saved/loaded.
     """
 
@@ -82,6 +87,11 @@ class RagConfig:
     # Guardrails
     similarity_threshold: float = 0.15
 
+    # PII anonymization (applied at ingestion, before embedding/indexing)
+    anonymizer: str = "none"
+    anonymize_model: str = "en_core_web_sm"
+    anonymize_threshold: float = 0.5
+
     # Storage
     index_dir: Path = field(default_factory=lambda: Path(DEFAULT_INDEX_DIR))
 
@@ -99,5 +109,8 @@ class RagConfig:
             chunk_size=_get_int("RAG_CHUNK_SIZE", 600),
             chunk_overlap=_get_int("RAG_CHUNK_OVERLAP", 100),
             similarity_threshold=_get_float("RAG_SIMILARITY_THRESHOLD", 0.15),
+            anonymizer=os.environ.get("RAG_ANONYMIZER", "none"),
+            anonymize_model=os.environ.get("RAG_ANONYMIZE_MODEL", "en_core_web_sm"),
+            anonymize_threshold=_get_float("RAG_ANONYMIZE_THRESHOLD", 0.5),
             index_dir=Path(index_dir),
         )

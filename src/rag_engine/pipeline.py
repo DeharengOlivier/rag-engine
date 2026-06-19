@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from rag_engine.anonymizer import Anonymizer, build_anonymizer
 from rag_engine.config import RagConfig
 from rag_engine.embeddings import Embedder, build_embedder
 from rag_engine.guardrails import (
@@ -73,6 +74,7 @@ class RagPipeline:
         *,
         embedder: Embedder | None = None,
         llm: LLM | None = None,
+        anonymizer: Anonymizer | None = None,
     ) -> None:
         """Create a pipeline.
 
@@ -82,12 +84,17 @@ class RagPipeline:
                 given, one is built from ``config``.
             llm: Optional LLM override (mainly for testing). If not given, one is
                 built from ``config``.
+            anonymizer: Optional anonymizer override (mainly for testing). If not
+                given, one is built from ``config`` (a no-op unless configured).
         """
         self.config = config or RagConfig.from_env()
         self._embedder = embedder or build_embedder(self.config)
         self._llm = llm or build_llm(self.config)
+        self._anonymizer = anonymizer or build_anonymizer(self.config)
         # The store is created on ingest() or loaded on demand by answer().
         self._store: VectorStore | None = None
+        # Per-type tally of PII removed during the last ingest() call.
+        self.last_pii_report: dict[str, int] = {}
 
     # -- Ingestion -------------------------------------------------------- #
 
@@ -108,6 +115,10 @@ class RagPipeline:
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap,
         )
+        # Anonymize PII before anything is embedded or written to disk, so the
+        # vector index and its metadata sidecar never contain raw PII.
+        self._anonymize_chunks(chunks)
+
         store = VectorStore(dim=self._embedder.dim)
         if chunks:
             vectors = self._embedder.embed([c.text for c in chunks])
@@ -115,6 +126,25 @@ class RagPipeline:
         store.save(self.config.index_dir)
         self._store = store
         return len(chunks)
+
+    def _anonymize_chunks(self, chunks: list) -> None:
+        """Redact PII in each chunk in place and record a per-type tally.
+
+        Each chunk's text is replaced with its anonymized version, and the count
+        of entities found is stored on the chunk's metadata under ``pii``. The
+        engine-wide tally is exposed on :attr:`last_pii_report`. A no-op
+        anonymizer leaves everything untouched.
+        """
+        report: dict[str, int] = {}
+        for chunk in chunks:
+            result = self._anonymizer.anonymize(chunk.text)
+            chunk.text = result.text
+            counts = result.entity_counts()
+            if counts:
+                chunk.metadata["pii"] = counts
+                for entity_type, count in counts.items():
+                    report[entity_type] = report.get(entity_type, 0) + count
+        self.last_pii_report = report
 
     # -- Querying --------------------------------------------------------- #
 
