@@ -113,8 +113,7 @@ class VectorStore:
         top_idx = np.argpartition(scores, -k)[-k:]
         top_idx = top_idx[np.argsort(scores[top_idx])[::-1]]
         return [
-            SearchResult(chunk=self._chunks[i], score=float(scores[i]))
-            for i in top_idx
+            SearchResult(chunk=self._chunks[i], score=float(scores[i])) for i in top_idx
         ]
 
     def save(self, directory: str | Path) -> None:

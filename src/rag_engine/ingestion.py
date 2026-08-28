@@ -176,7 +176,5 @@ def load_and_chunk(
         for i, piece in enumerate(
             chunk_text(cleaned, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         ):
-            chunks.append(
-                Chunk(text=piece, source=str(path), chunk_index=i)
-            )
+            chunks.append(Chunk(text=piece, source=str(path), chunk_index=i))
     return chunks

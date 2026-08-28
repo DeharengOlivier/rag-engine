@@ -63,8 +63,7 @@ class EvalReport:
         for case in self.per_case:
             status = "ok " if case["retrieval_hit"] else "MISS"
             lines.append(
-                f"  [{status}] kw={case['keyword_hit']:.0%} "
-                f"q={case['question'][:60]!r}"
+                f"  [{status}] kw={case['keyword_hit']:.0%} q={case['question'][:60]!r}"
             )
         return "\n".join(lines)
 
@@ -107,9 +106,7 @@ def evaluate(pipeline: RagPipeline, cases: list[EvalCase]) -> EvalReport:
         result = pipeline.answer(case.question)
 
         # Retrieval recall@k: was the expected source retrieved?
-        retrieved_sources = {
-            os.path.basename(r.chunk.source) for r in result.used_chunks
-        }
+        retrieved_sources = {os.path.basename(r.chunk.source) for r in result.used_chunks}
         if case.expected_source is None:
             # No expected source given: count as a hit only if anything retrieved.
             retrieval_hit = len(result.used_chunks) > 0
@@ -120,9 +117,7 @@ def evaluate(pipeline: RagPipeline, cases: list[EvalCase]) -> EvalReport:
         # Keyword score: fraction of expected keywords present in the answer.
         if case.answer_keywords:
             answer_lower = result.answer.lower()
-            found = sum(
-                1 for kw in case.answer_keywords if kw.lower() in answer_lower
-            )
+            found = sum(1 for kw in case.answer_keywords if kw.lower() in answer_lower)
             keyword_hit = found / len(case.answer_keywords)
         else:
             keyword_hit = 1.0  # nothing to check

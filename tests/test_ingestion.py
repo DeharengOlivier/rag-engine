@@ -27,15 +27,13 @@ def test_chunk_text_produces_overlapping_chunks():
     # Consecutive chunks should overlap: the end of one chunk shares some text
     # with the start of the next.
     first_tail = chunks[0][-50:]
-    assert any(
-        token in chunks[1] for token in first_tail.split()
-    ), "consecutive chunks should overlap"
+    assert any(token in chunks[1] for token in first_tail.split()), (
+        "consecutive chunks should overlap"
+    )
 
 
 def test_chunk_text_short_input_is_single_chunk():
-    assert chunk_text("short text", chunk_size=600, chunk_overlap=100) == [
-        "short text"
-    ]
+    assert chunk_text("short text", chunk_size=600, chunk_overlap=100) == ["short text"]
 
 
 def test_chunk_text_empty_input():

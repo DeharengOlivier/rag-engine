@@ -138,14 +138,10 @@ def _require_positive(field_name: str, value: int) -> None:
         raise ValueError(f"{field_name} must be strictly positive, got {value}.")
 
 
-def _require_within(
-    field_name: str, value: float, low: float, high: float
-) -> None:
+def _require_within(field_name: str, value: float, low: float, high: float) -> None:
     """Raise unless ``low <= value <= high``."""
     if not low <= value <= high:
-        raise ValueError(
-            f"{field_name} must be within [{low}, {high}], got {value}."
-        )
+        raise ValueError(f"{field_name} must be within [{low}, {high}], got {value}.")
 
 
 @dataclass
@@ -247,9 +243,7 @@ class RagConfig:
 
         # Cosine similarity lives in [-1, 1]: a threshold outside that range
         # either refuses every question or filters nothing.
-        _require_within(
-            "similarity_threshold", self.similarity_threshold, -1.0, 1.0
-        )
+        _require_within("similarity_threshold", self.similarity_threshold, -1.0, 1.0)
         _require_within("anonymize_threshold", self.anonymize_threshold, 0.0, 1.0)
 
         if self.llm_timeout_seconds <= 0:

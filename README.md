@@ -226,7 +226,7 @@ RAG_LOG_LEVEL=INFO rag ingest data/sample      # same, via the environment
 ```python
 from rag_engine.observability import configure_logging
 
-configure_logging("INFO")   # or use your application's own handlers
+configure_logging("INFO")  # or use your application's own handlers
 ```
 
 ## Project structure

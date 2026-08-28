@@ -184,8 +184,7 @@ class RegexAnonymizer:
 
     def __init__(self) -> None:
         self._compiled = [
-            (entity_type, re.compile(pattern))
-            for entity_type, pattern in self._PATTERNS
+            (entity_type, re.compile(pattern)) for entity_type, pattern in self._PATTERNS
         ]
 
     def anonymize(self, text: str) -> AnonymizationResult:

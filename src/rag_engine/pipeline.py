@@ -211,9 +211,7 @@ class RagPipeline:
             )
 
         # Only feed the grounded chunks to the generator.
-        grounded = [
-            r for r in results if r.score >= self.config.similarity_threshold
-        ]
+        grounded = [r for r in results if r.score >= self.config.similarity_threshold]
         answer_text = self._llm.generate(question, grounded)
         citations = build_citations(results, self.config.similarity_threshold)
         self._log_answer(results, refused=False, started_at=started_at)

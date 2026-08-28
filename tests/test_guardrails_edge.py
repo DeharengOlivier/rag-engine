@@ -53,7 +53,10 @@ def test_citation_index_reflects_position_in_full_list():
 
 def test_citation_snippet_is_truncated_with_ellipsis():
     long_text = "word " * 100
-    citations = build_citations([_result(0.9, "a.md", text=long_text)], threshold=0.15, )
+    citations = build_citations(
+        [_result(0.9, "a.md", text=long_text)],
+        threshold=0.15,
+    )
     snippet = citations[0].snippet
     assert snippet.endswith("...")
     assert len(snippet) <= 160 + 3
