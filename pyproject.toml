@@ -24,7 +24,7 @@ dependencies = ["numpy>=1.21"]
 embeddings = ["sentence-transformers"]
 llm = ["anthropic", "openai"]
 pii = ["presidio-analyzer", "presidio-anonymizer", "spacy"]
-dev = ["pytest", "pytest-cov", "ruff", "mypy", "pip-audit"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "pip-audit", "bandit"]
 
 [project.scripts]
 rag = "rag_engine.cli:main"

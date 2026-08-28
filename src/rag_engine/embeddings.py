@@ -81,7 +81,12 @@ class HashingEmbedder:
         vec = np.zeros(self._dim, dtype=np.float32)
         for token in _tokenize(text):
             # Stable hash across processes (Python's built-in hash() is salted).
-            digest = hashlib.md5(token.encode("utf-8")).digest()
+            # MD5 is used here as a bucketing function, never as a security
+            # primitive: usedforsecurity=False says so, and keeps the embedder
+            # working on FIPS-hardened hosts where plain md5() raises.
+            digest = hashlib.md5(
+                token.encode("utf-8"), usedforsecurity=False
+            ).digest()
             bucket = int.from_bytes(digest[:4], "little") % self._dim
             sign = 1.0 if digest[4] & 1 else -1.0
             vec[bucket] += sign

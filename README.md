@@ -1,5 +1,9 @@
 # rag-engine
 
+[![CI](https://github.com/DeharengOlivier/rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/DeharengOlivier/rag-engine/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 A small, well-architected, offline-first Retrieval-Augmented Generation (RAG)
 engine for asking questions over your own documents.
 
@@ -228,6 +232,23 @@ from rag_engine.observability import configure_logging
 
 configure_logging("INFO")  # or use your application's own handlers
 ```
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+
+pytest --cov          # the suite, offline, with branch coverage
+ruff check .          # lint
+ruff format .         # format
+mypy                  # strict type check over src/
+bandit -r src -q      # static analysis
+pip-audit             # known vulnerabilities in dependencies
+```
+
+CI runs all of it on every push and pull request, and the suite on Python 3.10
+through 3.13. It installs no optional dependency, which is how the offline-first
+promise stays true rather than aspirational.
 
 ## Project structure
 
