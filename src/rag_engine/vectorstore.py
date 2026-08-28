@@ -138,11 +138,14 @@ class VectorStore:
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         logger.info(
-            "index saved dir=%s vectors=%d dim=%d", directory, len(self._chunks), self._dim
+            "index saved dir=%s vectors=%d dim=%d",
+            directory,
+            len(self._chunks),
+            self._dim,
         )
 
     @classmethod
-    def load(cls, directory: str | Path) -> "VectorStore":
+    def load(cls, directory: str | Path) -> VectorStore:
         """Load a store previously written by :meth:`save`.
 
         Raises:

@@ -18,6 +18,7 @@ import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 from rag_engine.anonymizer import Anonymizer, build_anonymizer
 from rag_engine.config import RagConfig
@@ -28,7 +29,7 @@ from rag_engine.guardrails import (
     build_citations,
     passes_grounding,
 )
-from rag_engine.ingestion import load_and_chunk
+from rag_engine.ingestion import Chunk, load_and_chunk
 from rag_engine.llm import LLM, build_llm
 from rag_engine.observability import duration_ms
 from rag_engine.retriever import Retriever
@@ -53,7 +54,7 @@ class RagAnswer:
     used_chunks: list[SearchResult] = field(default_factory=list)
     refused: bool = False
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to a plain dict (useful for CLI/JSON output)."""
         return {
             "answer": self.answer,
@@ -142,7 +143,7 @@ class RagPipeline:
         )
         return len(chunks)
 
-    def _anonymize_chunks(self, chunks: list) -> None:
+    def _anonymize_chunks(self, chunks: list[Chunk]) -> None:
         """Redact PII in each chunk in place and record a per-type tally.
 
         Each chunk's text is replaced with its anonymized version, and the count

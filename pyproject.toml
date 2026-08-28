@@ -24,7 +24,7 @@ dependencies = ["numpy>=1.21"]
 embeddings = ["sentence-transformers"]
 llm = ["anthropic", "openai"]
 pii = ["presidio-analyzer", "presidio-anonymizer", "spacy"]
-dev = ["pytest"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "pip-audit"]
 
 [project.scripts]
 rag = "rag_engine.cli:main"
@@ -32,5 +32,52 @@ rag = "rag_engine.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# PEP 561: ship the type information with the package so it is checked, not
+# guessed, in the projects that depend on it.
+[tool.setuptools.package-data]
+rag_engine = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A warning that nobody reads is a warning that hides a real one.
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 90
+src = ["src", "tests"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import order
+    "B",    # bugbear: the mistakes that become defects
+    "UP",   # pyupgrade
+    "SIM",  # obvious simplifications
+    "RUF",  # ruff's own checks
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests reach into private attributes on purpose to exercise guards that a
+# validated configuration makes unreachable.
+"tests/*" = ["SLF001"]
+
+[tool.mypy]
+# No python_version pin: it forces mypy to read the installed numpy stubs with
+# an older grammar than they are written in. The supported floor is enforced by
+# running the test suite across the version matrix in CI instead.
+files = ["src"]
+strict = true
+# The optional providers are imported lazily and are not installed in CI.
+[[tool.mypy.overrides]]
+module = ["anthropic.*", "openai.*", "presidio_analyzer.*", "presidio_anonymizer.*", "sentence_transformers.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/rag_engine"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

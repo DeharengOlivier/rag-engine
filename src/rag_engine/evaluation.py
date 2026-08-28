@@ -20,6 +20,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from rag_engine.pipeline import RagPipeline
 
@@ -46,7 +47,7 @@ class EvalReport:
     num_cases: int
     recall_at_k: float
     keyword_score: float
-    per_case: list[dict] = field(default_factory=list)
+    per_case: list[dict[str, Any]] = field(default_factory=list)
 
     def format(self) -> str:
         """Render a short human-readable report."""
@@ -100,7 +101,7 @@ def evaluate(pipeline: RagPipeline, cases: list[EvalCase]) -> EvalReport:
 
     recall_hits = 0
     keyword_total = 0.0
-    per_case: list[dict] = []
+    per_case: list[dict[str, Any]] = []
 
     for case in cases:
         result = pipeline.answer(case.question)

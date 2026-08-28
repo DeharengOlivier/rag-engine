@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from rag_engine.config import (
     DEFAULT_LLM_MAX_RETRIES,
@@ -107,8 +107,11 @@ class AnthropicLLM:
         self._max_retries = max_retries
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Return the configured client, building it on first use.
+
+        The return type is untyped because the SDK is an optional dependency and
+        is not installed in the default environment.
 
         Raises:
             ImportError: The optional ``anthropic`` package is not installed.
@@ -182,8 +185,11 @@ class OpenAILLM:
         self._max_retries = max_retries
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Return the configured client, building it on first use.
+
+        The return type is untyped because the SDK is an optional dependency and
+        is not installed in the default environment.
 
         Raises:
             ImportError: The optional ``openai`` package is not installed.

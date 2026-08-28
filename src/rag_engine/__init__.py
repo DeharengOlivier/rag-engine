@@ -22,9 +22,9 @@ from rag_engine.config import RagConfig
 from rag_engine.pipeline import RagPipeline
 
 __all__ = [
+    "AnonymizationResult",
     "RagConfig",
     "RagPipeline",
-    "AnonymizationResult",
     "build_anonymizer",
 ]
 __version__ = "0.1.0"

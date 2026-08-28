@@ -11,7 +11,6 @@ import pytest
 
 from rag_engine.config import RagConfig
 
-
 # --- enum-like fields -------------------------------------------------------
 
 

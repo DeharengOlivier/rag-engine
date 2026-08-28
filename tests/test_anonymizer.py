@@ -17,7 +17,6 @@ from rag_engine.anonymizer import (
 )
 from rag_engine.config import RagConfig
 
-
 # -- RegexAnonymizer: detection ------------------------------------------- #
 
 

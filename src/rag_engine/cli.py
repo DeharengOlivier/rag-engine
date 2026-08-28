@@ -180,7 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     configure_logging(_log_level(args.verbose))
-    return args.func(args)
+    # argparse hands back an untyped callable; every _cmd_* returns an exit code.
+    exit_code: int = args.func(args)
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -268,7 +268,7 @@ class RagConfig:
             self.index_dir = Path(self.index_dir)
 
     @classmethod
-    def from_env(cls) -> "RagConfig":
+    def from_env(cls) -> RagConfig:
         """Build a config from environment variables (no secrets read here).
 
         Returns:

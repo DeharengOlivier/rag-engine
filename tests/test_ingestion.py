@@ -16,7 +16,7 @@ def test_clean_text_collapses_whitespace():
 
 def test_chunk_text_produces_overlapping_chunks():
     # Build text long enough to force multiple chunks.
-    words = ["word%d" % i for i in range(400)]
+    words = [f"word{i}" for i in range(400)]
     text = " ".join(words)
 
     chunks = chunk_text(text, chunk_size=200, chunk_overlap=50)

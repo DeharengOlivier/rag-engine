@@ -91,4 +91,4 @@ def test_from_env_does_not_read_secrets(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-should-not-be-used")
     config = RagConfig.from_env()
     for value in vars(config).values():
-        assert "sk-should-not-be-used" != value
+        assert value != "sk-should-not-be-used"

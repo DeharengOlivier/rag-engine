@@ -7,7 +7,6 @@ citation and grounding behavior deterministic and checkable.
 from __future__ import annotations
 
 from rag_engine.config import RagConfig
-from rag_engine.ingestion import Chunk
 from rag_engine.pipeline import RagPipeline
 from rag_engine.vectorstore import SearchResult
 

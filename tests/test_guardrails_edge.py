@@ -11,7 +11,9 @@ from rag_engine.ingestion import Chunk
 from rag_engine.vectorstore import SearchResult
 
 
-def _result(score: float, source: str = "doc.md", text: str = "supporting text") -> SearchResult:
+def _result(
+    score: float, source: str = "doc.md", text: str = "supporting text"
+) -> SearchResult:
     return SearchResult(chunk=Chunk(text=text, source=source, chunk_index=0), score=score)
 
 

@@ -20,7 +20,10 @@ def _retriever_from(chunks: list[Chunk]) -> Retriever:
 
 
 def test_top_k_caps_number_of_results():
-    chunks = [Chunk(text=f"document number {i}", source=f"d{i}.md", chunk_index=0) for i in range(10)]
+    chunks = [
+        Chunk(text=f"document number {i}", source=f"d{i}.md", chunk_index=0)
+        for i in range(10)
+    ]
     retriever = _retriever_from(chunks)
     results = retriever.retrieve("document", top_k=3)
     assert len(results) == 3

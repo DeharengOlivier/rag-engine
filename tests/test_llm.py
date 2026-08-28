@@ -11,9 +11,9 @@ import pytest
 from rag_engine.config import RagConfig
 from rag_engine.ingestion import Chunk
 from rag_engine.llm import (
+    LLM,
     AnthropicLLM,
     ExtractiveLLM,
-    LLM,
     OpenAILLM,
     build_llm,
 )

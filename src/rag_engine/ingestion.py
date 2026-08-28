@@ -17,9 +17,10 @@ here is intentionally simple but tries to break on whitespace rather than mid-wo
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Any
 
 # File extensions we know how to read as plain text.
 SUPPORTED_EXTENSIONS = (".txt", ".md")
@@ -33,12 +34,15 @@ class Chunk:
         text: The chunk's cleaned text content.
         source: Path (as a string) of the document the chunk came from.
         chunk_index: 0-based position of this chunk within its source document.
+        metadata: Free-form provenance attached by later stages, and serialized
+            to JSON with the index. The engine itself only ever writes a ``pii``
+            entry holding per-type redaction counts.
     """
 
     text: str
     source: str
     chunk_index: int
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def clean_text(text: str) -> str:
