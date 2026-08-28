@@ -82,8 +82,10 @@ def _cmd_eval(args: argparse.Namespace) -> int:
 def _cmd_anonymize(args: argparse.Namespace) -> int:
     """Handle ``rag anonymize``: show what an anonymizer redacts in a text."""
     config = RagConfig.from_env()
-    # Default to the offline regex backend for this command unless the user has
-    # explicitly selected one, so the demo works with no extra dependencies.
+    # This command exists to show what a backend would redact, so the
+    # engine-wide default of "none" is not a meaningful selection for it: fall
+    # back to the offline regex backend, which needs no extra dependency. Any
+    # other configured backend is used as-is.
     if config.anonymizer == "none":
         config.anonymizer = "regex"
     anonymizer = build_anonymizer(config)
@@ -185,5 +187,5 @@ def main(argv: list[str] | None = None) -> int:
     return exit_code
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - exercised as a console script
     raise SystemExit(main())

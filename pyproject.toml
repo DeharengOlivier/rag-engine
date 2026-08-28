@@ -80,4 +80,9 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    # Protocol method bodies are declarations, not code paths.
+    "^\\s*\\.\\.\\.$",
+]
