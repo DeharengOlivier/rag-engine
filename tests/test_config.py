@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from rag_engine.config import DEFAULT_INDEX_DIR, RagConfig
 
 
@@ -59,18 +61,28 @@ def test_from_env_reads_overrides(monkeypatch):
     assert config.index_dir == Path("/tmp/custom_index")
 
 
-def test_from_env_invalid_int_falls_back_to_default(monkeypatch):
+# Specification change: an unparseable value used to fall back to the default.
+# It now raises. A typo in a deployment config must fail at startup rather than
+# turn into a pipeline that quietly behaves differently from what was asked.
+def test_from_env_rejects_an_unparseable_int(monkeypatch):
     monkeypatch.setenv("RAG_EMBEDDING_DIM", "not-an-int")
-    monkeypatch.setenv("RAG_TOP_K", "")  # blank also falls back
-    config = RagConfig.from_env()
-    assert config.embedding_dim == 256
-    assert config.top_k == 4
+    with pytest.raises(ValueError, match="RAG_EMBEDDING_DIM"):
+        RagConfig.from_env()
 
 
-def test_from_env_invalid_float_falls_back_to_default(monkeypatch):
+def test_from_env_rejects_an_unparseable_float(monkeypatch):
     monkeypatch.setenv("RAG_SIMILARITY_THRESHOLD", "high")
+    with pytest.raises(ValueError, match="RAG_SIMILARITY_THRESHOLD"):
+        RagConfig.from_env()
+
+
+def test_from_env_treats_a_blank_value_as_unset(monkeypatch):
+    # Blank and unset carry the same intent, for strings as well as numbers.
+    monkeypatch.setenv("RAG_TOP_K", "")
+    monkeypatch.setenv("RAG_EMBEDDER", "   ")
     config = RagConfig.from_env()
-    assert config.similarity_threshold == 0.15
+    assert config.top_k == 4
+    assert config.embedder == "hashing"
 
 
 def test_from_env_does_not_read_secrets(monkeypatch):

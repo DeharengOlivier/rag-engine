@@ -164,20 +164,25 @@ All settings are read from environment variables (see `.env.example`). Secrets
 are never read at import time: API keys are read lazily, only when an
 API-backed provider is actually called.
 
+Every variable is validated when the configuration is built. A value that cannot
+be parsed, or that falls outside the range below, raises immediately with a
+message naming the variable: a typo in a deployment config fails at startup
+instead of quietly changing how the engine behaves. A blank value counts as unset.
+
 | Variable | Default | Description |
 | --- | --- | --- |
 | `RAG_EMBEDDER` | `hashing` | `hashing` (offline) or `sentence-transformers` (optional). |
 | `RAG_LLM_PROVIDER` | `extractive` | `extractive` (offline), `anthropic`, or `openai`. |
 | `ANTHROPIC_API_KEY` | (unset) | Optional. Only used by the `anthropic` provider. |
 | `OPENAI_API_KEY` | (unset) | Optional. Only used by the `openai` provider. |
-| `RAG_TOP_K` | `4` | Number of chunks retrieved per query. |
-| `RAG_CHUNK_SIZE` | `600` | Target chunk size in characters. |
-| `RAG_CHUNK_OVERLAP` | `100` | Overlap between consecutive chunks, in characters. |
-| `RAG_SIMILARITY_THRESHOLD` | `0.15` | Minimum cosine similarity for a chunk to count as evidence. |
+| `RAG_TOP_K` | `4` | Number of chunks retrieved per query. Must be > 0. |
+| `RAG_CHUNK_SIZE` | `600` | Target chunk size in characters. Must be > 0. |
+| `RAG_CHUNK_OVERLAP` | `100` | Overlap between consecutive chunks, in characters. Must be within `[0, RAG_CHUNK_SIZE)`. |
+| `RAG_SIMILARITY_THRESHOLD` | `0.15` | Minimum cosine similarity for a chunk to count as evidence. Must be within `[-1.0, 1.0]`. |
 | `RAG_ANONYMIZER` | `none` | PII redaction at ingestion: `none`, `regex` (offline), or `presidio`. |
 | `RAG_ANONYMIZE_MODEL` | `en_core_web_sm` | spaCy model used by the `presidio` backend. |
-| `RAG_ANONYMIZE_THRESHOLD` | `0.5` | Minimum detector confidence for `presidio` to redact an entity. |
-| `RAG_EMBEDDING_DIM` | `256` | Vector dimension for the hashing embedder. |
+| `RAG_ANONYMIZE_THRESHOLD` | `0.5` | Minimum detector confidence for `presidio` to redact an entity. Must be within `[0.0, 1.0]`. |
+| `RAG_EMBEDDING_DIM` | `256` | Vector dimension for the hashing embedder. Must be > 0. |
 | `RAG_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Model name for the sentence-transformers embedder. |
 | `RAG_LLM_MODEL` | `claude-opus-4-8` | Model name for the anthropic/openai providers. |
 | `RAG_INDEX_DIR` | `.rag_index` | Directory where the vector index is saved. |

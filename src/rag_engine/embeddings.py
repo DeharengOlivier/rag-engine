@@ -134,10 +134,12 @@ def build_embedder(config: RagConfig) -> Embedder:
     Raises:
         ValueError: If ``config.embedder`` is not a recognized value.
     """
-    name = config.embedder.lower()
-    if name == "hashing":
+    # config.embedder is already validated and canonical (see RagConfig), so the
+    # comparisons are exact and the final raise only fires if a value is added to
+    # EMBEDDERS without a branch here.
+    if config.embedder == "hashing":
         return HashingEmbedder(dim=config.embedding_dim)
-    if name in ("sentence-transformers", "sentence_transformers", "st"):
+    if config.embedder == "sentence-transformers":
         return SentenceTransformerEmbedder(model_name=config.embedding_model)
     raise ValueError(
         f"Unknown embedder '{config.embedder}'. "

@@ -62,9 +62,13 @@ def test_build_llm_returns_extractive_by_default():
     assert isinstance(build_llm(RagConfig(llm_provider="extractive")), ExtractiveLLM)
 
 
-def test_build_llm_unknown_provider_raises():
-    with pytest.raises(ValueError):
-        build_llm(RagConfig(llm_provider="nonsense"))
+def test_build_llm_rejects_a_provider_with_no_branch():
+    # See test_build_anonymizer_rejects_a_name_with_no_branch: the config layer
+    # rejects unknown providers, so this exercises the exhaustiveness guard.
+    config = RagConfig()
+    config.llm_provider = "nonsense"
+    with pytest.raises(ValueError, match="Unknown LLM provider"):
+        build_llm(config)
 
 
 def test_anthropic_provider_raises_without_key_when_package_present(monkeypatch):

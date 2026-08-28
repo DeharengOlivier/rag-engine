@@ -72,6 +72,10 @@ def test_build_embedder_returns_hashing_by_default():
     assert emb.dim == 128
 
 
-def test_build_embedder_unknown_name_raises():
-    with pytest.raises(ValueError):
-        build_embedder(RagConfig(embedder="not-a-real-embedder"))
+def test_build_embedder_rejects_a_name_with_no_branch():
+    # See test_build_anonymizer_rejects_a_name_with_no_branch: the config layer
+    # rejects unknown embedders, so this exercises the exhaustiveness guard.
+    config = RagConfig()
+    config.embedder = "not-a-real-embedder"
+    with pytest.raises(ValueError, match="Unknown embedder"):
+        build_embedder(config)

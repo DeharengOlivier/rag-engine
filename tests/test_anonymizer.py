@@ -133,9 +133,15 @@ def test_build_anonymizer_regex():
     assert anon.name == "regex"
 
 
-def test_build_anonymizer_unknown_raises():
+def test_build_anonymizer_rejects_a_name_with_no_branch():
+    # Unreachable through RagConfig, which now rejects unknown names at
+    # construction (see test_config_validation.py). Mutating the field afterwards
+    # bypasses that validation on purpose, to exercise the exhaustiveness guard
+    # that protects against extending ANONYMIZERS without a branch here.
+    config = RagConfig()
+    config.anonymizer = "magic"
     with pytest.raises(ValueError, match="Unknown anonymizer"):
-        build_anonymizer(RagConfig(anonymizer="magic"))
+        build_anonymizer(config)
 
 
 # -- Presidio backend (skipped when the optional dependency is absent) ----- #

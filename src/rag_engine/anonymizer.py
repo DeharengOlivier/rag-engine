@@ -290,12 +290,14 @@ def build_anonymizer(config: RagConfig) -> Anonymizer:
     Raises:
         ValueError: If ``config.anonymizer`` is not a recognized value.
     """
-    name = config.anonymizer.lower()
-    if name in ("none", "off", ""):
+    # config.anonymizer is already validated and canonical (see RagConfig), so the
+    # comparisons are exact and the final raise only fires if a value is added to
+    # ANONYMIZERS without a branch here.
+    if config.anonymizer == "none":
         return NoOpAnonymizer()
-    if name == "regex":
+    if config.anonymizer == "regex":
         return RegexAnonymizer()
-    if name == "presidio":
+    if config.anonymizer == "presidio":
         return PresidioAnonymizer(
             model_name=config.anonymize_model,
             score_threshold=config.anonymize_threshold,

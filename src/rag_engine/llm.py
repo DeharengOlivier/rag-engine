@@ -169,12 +169,14 @@ def build_llm(config: RagConfig) -> LLM:
     Raises:
         ValueError: If ``config.llm_provider`` is not a recognized value.
     """
-    provider = config.llm_provider.lower()
-    if provider == "extractive":
+    # config.llm_provider is already validated and canonical (see RagConfig), so
+    # the comparisons are exact and the final raise only fires if a value is added
+    # to LLM_PROVIDERS without a branch here.
+    if config.llm_provider == "extractive":
         return ExtractiveLLM()
-    if provider == "anthropic":
+    if config.llm_provider == "anthropic":
         return AnthropicLLM(model=config.llm_model)
-    if provider == "openai":
+    if config.llm_provider == "openai":
         return OpenAILLM(model=config.llm_model)
     raise ValueError(
         f"Unknown LLM provider '{config.llm_provider}'. "

@@ -80,7 +80,7 @@ def _cmd_anonymize(args: argparse.Namespace) -> int:
     config = RagConfig.from_env()
     # Default to the offline regex backend for this command unless the user has
     # explicitly selected one, so the demo works with no extra dependencies.
-    if config.anonymizer.lower() in ("none", "off", ""):
+    if config.anonymizer == "none":
         config.anonymizer = "regex"
     anonymizer = build_anonymizer(config)
     result = anonymizer.anonymize(args.text)
