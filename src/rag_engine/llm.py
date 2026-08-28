@@ -13,6 +13,11 @@ Three providers are offered:
 - :class:`OpenAILLM` (optional): calls the OpenAI Chat Completions API. The
   ``openai`` package and ``OPENAI_API_KEY`` are read lazily, at call time.
 
+Both API-backed providers bound every outbound call: a timeout and a finite
+number of retries, taken from the configuration. The SDKs handle the exponential
+backoff and jitter between attempts, and the client is built once per provider
+instance so the connection pool is reused.
+
 All providers receive the question plus the retrieved context blocks and return
 a single answer string. Grounding/citation enforcement lives in
 :mod:`rag_engine.guardrails`, not here, so providers stay focused on generation.
@@ -23,7 +28,11 @@ from __future__ import annotations
 import os
 from typing import Protocol, runtime_checkable
 
-from rag_engine.config import RagConfig
+from rag_engine.config import (
+    DEFAULT_LLM_MAX_RETRIES,
+    DEFAULT_LLM_TIMEOUT_SECONDS,
+    RagConfig,
+)
 from rag_engine.vectorstore import SearchResult
 
 # Shared instruction given to real LLM providers: answer only from context and
@@ -82,10 +91,26 @@ class ExtractiveLLM:
 class AnthropicLLM:
     """Answer generator backed by the Anthropic Messages API (lazy import)."""
 
-    def __init__(self, model: str = "claude-opus-4-8") -> None:
+    def __init__(
+        self,
+        model: str = "claude-3-5-haiku-latest",
+        timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_LLM_MAX_RETRIES,
+    ) -> None:
         self._model = model
+        self._timeout_seconds = timeout_seconds
+        self._max_retries = max_retries
+        self._client = None
 
-    def generate(self, question: str, contexts: list[SearchResult]) -> str:
+    def _get_client(self):
+        """Return the configured client, building it on first use.
+
+        Raises:
+            ImportError: The optional ``anthropic`` package is not installed.
+            RuntimeError: ``ANTHROPIC_API_KEY`` is not set.
+        """
+        if self._client is not None:
+            return self._client
         try:
             import anthropic
         except ImportError as exc:  # pragma: no cover - needs the optional extra
@@ -102,7 +127,13 @@ class AnthropicLLM:
                 "RAG_LLM_PROVIDER=extractive to run offline."
             )
 
-        client = anthropic.Anthropic()
+        self._client = anthropic.Anthropic(
+            timeout=self._timeout_seconds, max_retries=self._max_retries
+        )
+        return self._client
+
+    def generate(self, question: str, contexts: list[SearchResult]) -> str:
+        client = self._get_client()
         context_block = _format_context_block(contexts)
         user_content = (
             f"Context:\n{context_block}\n\n"
@@ -126,10 +157,26 @@ class AnthropicLLM:
 class OpenAILLM:
     """Answer generator backed by the OpenAI Chat Completions API (lazy import)."""
 
-    def __init__(self, model: str = "gpt-4o-mini") -> None:
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_LLM_MAX_RETRIES,
+    ) -> None:
         self._model = model
+        self._timeout_seconds = timeout_seconds
+        self._max_retries = max_retries
+        self._client = None
 
-    def generate(self, question: str, contexts: list[SearchResult]) -> str:
+    def _get_client(self):
+        """Return the configured client, building it on first use.
+
+        Raises:
+            ImportError: The optional ``openai`` package is not installed.
+            RuntimeError: ``OPENAI_API_KEY`` is not set.
+        """
+        if self._client is not None:
+            return self._client
         try:
             import openai
         except ImportError as exc:  # pragma: no cover - needs the optional extra
@@ -145,7 +192,13 @@ class OpenAILLM:
                 "RAG_LLM_PROVIDER=extractive to run offline."
             )
 
-        client = openai.OpenAI()
+        self._client = openai.OpenAI(
+            timeout=self._timeout_seconds, max_retries=self._max_retries
+        )
+        return self._client
+
+    def generate(self, question: str, contexts: list[SearchResult]) -> str:
+        client = self._get_client()
         context_block = _format_context_block(contexts)
         user_content = (
             f"Context:\n{context_block}\n\n"
@@ -175,9 +228,17 @@ def build_llm(config: RagConfig) -> LLM:
     if config.llm_provider == "extractive":
         return ExtractiveLLM()
     if config.llm_provider == "anthropic":
-        return AnthropicLLM(model=config.llm_model)
+        return AnthropicLLM(
+            model=config.llm_model,
+            timeout_seconds=config.llm_timeout_seconds,
+            max_retries=config.llm_max_retries,
+        )
     if config.llm_provider == "openai":
-        return OpenAILLM(model=config.llm_model)
+        return OpenAILLM(
+            model=config.llm_model,
+            timeout_seconds=config.llm_timeout_seconds,
+            max_retries=config.llm_max_retries,
+        )
     raise ValueError(
         f"Unknown LLM provider '{config.llm_provider}'. "
         "Expected 'extractive', 'anthropic' or 'openai'."

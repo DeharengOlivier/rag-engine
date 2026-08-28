@@ -42,6 +42,14 @@ _EMBEDDER_ALIASES = {
 }
 _ANONYMIZER_ALIASES = {"off": "none"}
 
+# Bounds for every outbound LLM call. The SDK defaults are far too permissive
+# (600 seconds for anthropic), which turns one slow provider into a hung process.
+DEFAULT_LLM_TIMEOUT_SECONDS = 30.0
+DEFAULT_LLM_MAX_RETRIES = 2
+# Retries are bounded so the worst case stays predictable: a wedged provider must
+# not be able to hold a request for an unbounded amount of time.
+MAX_LLM_RETRIES = 5
+
 
 def _get_str(name: str, default: str) -> str:
     """Read a string environment variable, treating blank as unset.
@@ -153,6 +161,10 @@ class RagConfig:
         embedding_dim: Dimensionality of the hashing embedder's vectors, > 0.
         llm_provider: Which answer generator to use, one of :data:`LLM_PROVIDERS`.
         llm_model: Model name used by the anthropic/openai providers.
+        llm_timeout_seconds: Timeout applied to every API-backed call, > 0.
+        llm_max_retries: Retries the provider SDK may attempt on a failed call,
+            within ``[0, MAX_LLM_RETRIES]``. The SDKs back off exponentially
+            with jitter between attempts.
         top_k: Number of chunks to retrieve per query, > 0.
         chunk_size: Target chunk size in characters, > 0.
         chunk_overlap: Overlap between consecutive chunks in characters, within
@@ -179,6 +191,8 @@ class RagConfig:
     # LLM generation
     llm_provider: str = "extractive"
     llm_model: str = "claude-3-5-haiku-latest"
+    llm_timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS
+    llm_max_retries: int = DEFAULT_LLM_MAX_RETRIES
 
     # Retrieval / chunking
     top_k: int = 4
@@ -227,6 +241,17 @@ class RagConfig:
         )
         _require_within("anonymize_threshold", self.anonymize_threshold, 0.0, 1.0)
 
+        if self.llm_timeout_seconds <= 0:
+            raise ValueError(
+                "llm_timeout_seconds must be strictly positive, got "
+                f"{self.llm_timeout_seconds}."
+            )
+        if not 0 <= self.llm_max_retries <= MAX_LLM_RETRIES:
+            raise ValueError(
+                f"llm_max_retries must be within [0, {MAX_LLM_RETRIES}], got "
+                f"{self.llm_max_retries}."
+            )
+
         # Accept a plain string for convenience, but store the validated type.
         if not isinstance(self.index_dir, Path):
             self.index_dir = Path(self.index_dir)
@@ -249,6 +274,10 @@ class RagConfig:
             embedding_dim=_get_int("RAG_EMBEDDING_DIM", 256),
             llm_provider=_get_str("RAG_LLM_PROVIDER", "extractive"),
             llm_model=_get_str("RAG_LLM_MODEL", "claude-3-5-haiku-latest"),
+            llm_timeout_seconds=_get_float(
+                "RAG_LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS
+            ),
+            llm_max_retries=_get_int("RAG_LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
             top_k=_get_int("RAG_TOP_K", 4),
             chunk_size=_get_int("RAG_CHUNK_SIZE", 600),
             chunk_overlap=_get_int("RAG_CHUNK_OVERLAP", 100),

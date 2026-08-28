@@ -184,7 +184,9 @@ instead of quietly changing how the engine behaves. A blank value counts as unse
 | `RAG_ANONYMIZE_THRESHOLD` | `0.5` | Minimum detector confidence for `presidio` to redact an entity. Must be within `[0.0, 1.0]`. |
 | `RAG_EMBEDDING_DIM` | `256` | Vector dimension for the hashing embedder. Must be > 0. |
 | `RAG_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Model name for the sentence-transformers embedder. |
-| `RAG_LLM_MODEL` | `claude-opus-4-8` | Model name for the anthropic/openai providers. |
+| `RAG_LLM_MODEL` | `claude-3-5-haiku-latest` | Model name for the anthropic/openai providers. |
+| `RAG_LLM_TIMEOUT_SECONDS` | `30` | Timeout on every API-backed call. Must be > 0. |
+| `RAG_LLM_MAX_RETRIES` | `2` | Retries the provider SDK may attempt, with exponential backoff and jitter. Must be within `[0, 5]`. |
 | `RAG_INDEX_DIR` | `.rag_index` | Directory where the vector index is saved. |
 
 Optional extras (only needed if you switch providers):
