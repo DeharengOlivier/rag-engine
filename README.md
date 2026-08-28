@@ -248,12 +248,18 @@ default `dim=256`:
 
 | Chunks | Memory | On disk | Query |
 | --- | --- | --- | --- |
-| 10 000 | ~51 MB | 17 MB | 0.1 ms |
-| 100 000 | ~480 MB | 173 MB | 1.9 ms |
-| 500 000 | ~2.2 GB | 864 MB | 9.5 ms |
+| 10 000 | ~50 MB | 17 MB | 0.1 ms |
+| 100 000 | ~483 MB | 173 MB | 1.4 ms |
+| 500 000 | ~1.9 GB | 865 MB | 8.2 ms |
 
-Each row was measured, not extrapolated: peak resident memory while building the
-index, the size of the two files on disk, and the mean of twenty queries.
+Every row is measured, not extrapolated: peak resident memory of a process
+building one index, the size of the two files on disk, and the mean of twenty
+queries. Re-run it yourself, on your own hardware and at your own sizes:
+
+```bash
+python benchmarks/bench_vectorstore.py
+python benchmarks/bench_vectorstore.py 1000 25000 --dim 384
+```
 
 Everything is linear in the number of chunks, in both memory and query time: a
 query is an exact scan of the whole matrix, never an approximation. Two limits
@@ -294,6 +300,7 @@ rag-engine/
   LICENSE                   # MIT
   .env.example              # config placeholders (no secrets)
   .gitignore
+  benchmarks/               # the script behind the scale table above
   data/sample/*.md          # bundled synthetic sample documents
   evals/sample_eval.json    # example evaluation cases
   src/rag_engine/
