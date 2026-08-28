@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Only the GitHub Actions used by CI are pinned by this repository. Python
+  # dependencies are declared as ranges in pyproject.toml, so CI resolves them
+  # fresh on every run and pip-audit fails the build on a known vulnerability.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
