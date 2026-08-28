@@ -56,7 +56,7 @@ jobs:
       - name: Tests
         # The engine must pass with no optional dependency installed: that is
         # the offline-first promise, and CI is where it stays true.
-        run: pytest --cov --cov-fail-under=93
+        run: pytest --cov --cov-fail-under=97
 
   security:
     name: Dependency and code scanning

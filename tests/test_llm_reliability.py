@@ -178,3 +178,20 @@ def test_missing_key_is_reported_before_any_client_is_built(
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
         AnthropicLLM().generate("q?", [_ctx()])
     assert anthropic_recorder.client_kwargs == []
+
+
+def test_openai_missing_key_is_reported_before_any_client_is_built(
+    monkeypatch, openai_recorder
+):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        OpenAILLM().generate("q?", [_ctx()])
+    assert openai_recorder.client_kwargs == []
+
+
+def test_build_llm_passes_the_configured_bounds_to_openai(openai_recorder):
+    config = RagConfig(llm_provider="openai", llm_timeout_seconds=3.0, llm_max_retries=0)
+    build_llm(config).generate("q?", [_ctx()])
+    kwargs = openai_recorder.client_kwargs[0]
+    assert kwargs["timeout"] == 3.0
+    assert kwargs["max_retries"] == 0

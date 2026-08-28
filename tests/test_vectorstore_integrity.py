@@ -211,3 +211,27 @@ def _corpus(tmp_path):
             encoding="utf-8",
         )
     return folder
+
+
+def test_load_rejects_metadata_missing_its_keys(tmp_path):
+    _store().save(tmp_path)
+    (tmp_path / _META_FILE).write_text('{"chunks": []}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="dim"):
+        VectorStore.load(tmp_path)
+
+
+def test_load_rejects_a_non_numeric_dim(tmp_path):
+    _store().save(tmp_path)
+    _rewrite_meta(tmp_path, lambda m: m.__setitem__("dim", "wide"))
+
+    with pytest.raises(ValueError, match="non-numeric dim"):
+        VectorStore.load(tmp_path)
+
+
+def test_load_rejects_metadata_that_is_not_an_object(tmp_path):
+    _store().save(tmp_path)
+    (tmp_path / _META_FILE).write_text("[1, 2, 3]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=_META_FILE):
+        VectorStore.load(tmp_path)
