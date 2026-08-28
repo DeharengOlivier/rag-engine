@@ -86,6 +86,12 @@ LLM through configuration.
   a similarity threshold, the engine refuses instead of guessing. When it does
   answer, every supporting chunk is attached as a citation, so answers are
   auditable.
+- **An index you can trust or rebuild.** The index spans two files that have to
+  agree with each other, so a save is staged in a sibling directory and swapped
+  into place: an interrupted write leaves the previous index intact instead of a
+  mismatched pair. Loading checks the two files against each other and refuses a
+  torn index, since the corpus is the source of truth and re-running ingestion
+  is always the recovery path.
 - **Evaluation built in.** A tiny harness measures retrieval recall@k and a
   keyword-coverage proxy for answer quality, catching the most common
   regressions without needing a second model to grade.
