@@ -188,6 +188,7 @@ instead of quietly changing how the engine behaves. A blank value counts as unse
 | `RAG_LLM_TIMEOUT_SECONDS` | `30` | Timeout on every API-backed call. Must be > 0. |
 | `RAG_LLM_MAX_RETRIES` | `2` | Retries the provider SDK may attempt, with exponential backoff and jitter. Must be within `[0, 5]`. |
 | `RAG_INDEX_DIR` | `.rag_index` | Directory where the vector index is saved. |
+| `RAG_LOG_LEVEL` | `WARNING` | Level for the engine's logs: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
 
 Optional extras (only needed if you switch providers):
 
@@ -202,6 +203,32 @@ The embedder and LLM providers are entirely optional. With the default
 configuration, `rag-engine` runs fully offline using only numpy and the standard
 library.
 
+## Logging
+
+The engine logs the shape of every operation and none of its content. A record
+says how many chunks were indexed, how many results were retrieved, the best
+similarity score, whether the grounding gate refused, and how long it took.
+Questions, answers, document text and detected PII values never appear in a log
+line, at any level: a log file must not become a second, unprotected copy of the
+corpus.
+
+The library follows the usual rule and configures nothing: it logs through
+`logging.getLogger(__name__)` under a `rag_engine` logger carrying a
+`NullHandler`, so importing the package prints nothing and your own logging
+configuration wins. Applications opt in:
+
+```bash
+rag --verbose ingest data/sample     # INFO trace on stderr
+rag -vv query "When is recycling collected?"   # DEBUG
+RAG_LOG_LEVEL=INFO rag ingest data/sample      # same, via the environment
+```
+
+```python
+from rag_engine.observability import configure_logging
+
+configure_logging("INFO")   # or use your application's own handlers
+```
+
 ## Project structure
 
 ```
@@ -214,7 +241,8 @@ rag-engine/
   data/sample/*.md          # bundled synthetic sample documents
   evals/sample_eval.json    # example evaluation cases
   src/rag_engine/
-    config.py               # env-driven configuration dataclass
+    config.py               # env-driven configuration, validated at the boundary
+    observability.py        # package logger + application-side configuration
     ingestion.py            # load + clean + chunk documents
     anonymizer.py           # PII redaction: regex (offline) + presidio (optional)
     embeddings.py           # hashing (default) and sentence-transformers embedders

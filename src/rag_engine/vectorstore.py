@@ -18,12 +18,15 @@ same shape a real backend would expose, so swapping in FAISS later is localized.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 from rag_engine.ingestion import Chunk
+
+logger = logging.getLogger(__name__)
 
 # File names used inside the index directory.
 _VECTORS_FILE = "vectors.npy"
@@ -134,6 +137,9 @@ class VectorStore:
         (directory / _META_FILE).write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+        logger.info(
+            "index saved dir=%s vectors=%d dim=%d", directory, len(self._chunks), self._dim
+        )
 
     @classmethod
     def load(cls, directory: str | Path) -> "VectorStore":
@@ -162,4 +168,10 @@ class VectorStore:
             )
             for c in meta["chunks"]
         ]
+        logger.info(
+            "index loaded dir=%s vectors=%d dim=%d",
+            directory,
+            len(store._chunks),
+            store._dim,
+        )
         return store

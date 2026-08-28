@@ -25,7 +25,9 @@ a single answer string. Grounding/citation enforcement lives in
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from typing import Protocol, runtime_checkable
 
 from rag_engine.config import (
@@ -33,7 +35,10 @@ from rag_engine.config import (
     DEFAULT_LLM_TIMEOUT_SECONDS,
     RagConfig,
 )
+from rag_engine.observability import duration_ms
 from rag_engine.vectorstore import SearchResult
+
+logger = logging.getLogger(__name__)
 
 # Shared instruction given to real LLM providers: answer only from context and
 # refuse otherwise. This keeps the API-backed paths grounded too.
@@ -142,12 +147,21 @@ class AnthropicLLM:
             "bracketed numbers."
         )
         # Adaptive thinking is the recommended setting on this model family.
+        started_at = time.perf_counter()
         response = client.messages.create(
             model=self._model,
             max_tokens=1024,
             system=_SYSTEM_PROMPT,
             thinking={"type": "adaptive"},
             messages=[{"role": "user", "content": user_content}],
+        )
+        # The prompt and the answer stay out of the record: only the shape of
+        # the call is logged.
+        logger.info(
+            "llm call provider=anthropic model=%s contexts=%d duration_ms=%s",
+            self._model,
+            len(contexts),
+            duration_ms(started_at, time.perf_counter()),
         )
         return "".join(
             block.text for block in response.content if block.type == "text"
@@ -206,12 +220,19 @@ class OpenAILLM:
             "Answer using only the context above and cite sources by their "
             "bracketed numbers."
         )
+        started_at = time.perf_counter()
         response = client.chat.completions.create(
             model=self._model,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": user_content},
             ],
+        )
+        logger.info(
+            "llm call provider=openai model=%s contexts=%d duration_ms=%s",
+            self._model,
+            len(contexts),
+            duration_ms(started_at, time.perf_counter()),
         )
         return (response.choices[0].message.content or "").strip()
 

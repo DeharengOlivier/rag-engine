@@ -14,6 +14,8 @@ unit-testable in isolation. The pipeline just composes them in the right order.
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -28,8 +30,11 @@ from rag_engine.guardrails import (
 )
 from rag_engine.ingestion import load_and_chunk
 from rag_engine.llm import LLM, build_llm
+from rag_engine.observability import duration_ms
 from rag_engine.retriever import Retriever
 from rag_engine.vectorstore import SearchResult, VectorStore
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -110,6 +115,7 @@ class RagPipeline:
         Returns:
             The number of chunks indexed.
         """
+        started_at = time.perf_counter()
         chunks = load_and_chunk(
             folder,
             chunk_size=self.config.chunk_size,
@@ -125,6 +131,15 @@ class RagPipeline:
             store.add(vectors, chunks)
         store.save(self.config.index_dir)
         self._store = store
+        # Counts only: the corpus itself, and any PII found in it, never reach a
+        # log record.
+        logger.info(
+            "ingest completed folder=%s chunks=%d pii_redacted=%d duration_ms=%s",
+            folder,
+            len(chunks),
+            sum(self.last_pii_report.values()),
+            duration_ms(started_at, time.perf_counter()),
+        )
         return len(chunks)
 
     def _anonymize_chunks(self, chunks: list) -> None:
@@ -154,6 +169,18 @@ class RagPipeline:
             self._store = VectorStore.load(self.config.index_dir)
         return self._store
 
+    def _log_answer(
+        self, results: list[SearchResult], *, refused: bool, started_at: float
+    ) -> None:
+        """Record the outcome of a query: its shape, never its content."""
+        logger.info(
+            "answer completed retrieved=%d best_score=%.4f refused=%s duration_ms=%s",
+            len(results),
+            max((r.score for r in results), default=0.0),
+            refused,
+            duration_ms(started_at, time.perf_counter()),
+        )
+
     def answer(self, question: str) -> RagAnswer:
         """Answer ``question`` from the indexed corpus, with grounding + citations.
 
@@ -167,12 +194,14 @@ class RagPipeline:
             A :class:`RagAnswer`. ``refused`` is True when no retrieved chunk
             cleared the configured similarity threshold.
         """
+        started_at = time.perf_counter()
         store = self._ensure_store()
         retriever = Retriever(self._embedder, store)
         results = retriever.retrieve(question, top_k=self.config.top_k)
 
         # Grounding gate: refuse rather than answer from an unsupported context.
         if not passes_grounding(results, self.config.similarity_threshold):
+            self._log_answer(results, refused=True, started_at=started_at)
             return RagAnswer(
                 answer=REFUSAL_MESSAGE,
                 citations=[],
@@ -186,6 +215,7 @@ class RagPipeline:
         ]
         answer_text = self._llm.generate(question, grounded)
         citations = build_citations(results, self.config.similarity_threshold)
+        self._log_answer(results, refused=False, started_at=started_at)
         return RagAnswer(
             answer=answer_text,
             citations=citations,

@@ -9,6 +9,9 @@ Subcommands:
 
 The CLI reads configuration from environment variables (see ``RagConfig``), so
 the same defaults that make the library run offline also apply here.
+
+It is the only place that configures logging: quiet by default, ``-v`` for the
+engine's INFO trace on stderr, ``-vv`` for DEBUG.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ import sys
 from rag_engine.anonymizer import build_anonymizer
 from rag_engine.config import RagConfig
 from rag_engine.evaluation import evaluate, load_eval_cases
+from rag_engine.observability import configure_logging
 from rag_engine.pipeline import RagPipeline
 
 
@@ -125,6 +129,14 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rag",
         description="A generic, offline-first Retrieval-Augmented Generation engine.",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Show the engine's trace on stderr: -v for INFO, -vv for DEBUG. "
+        "Without it, the level comes from RAG_LOG_LEVEL (default WARNING).",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_ingest = sub.add_parser("ingest", help="Index a folder of .txt/.md documents.")
@@ -154,10 +166,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _log_level(verbosity: int) -> str:
+    """Translate ``-v`` occurrences into a level, falling back to the config."""
+    if verbosity >= 2:
+        return "DEBUG"
+    if verbosity == 1:
+        return "INFO"
+    return RagConfig.from_env().log_level
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``rag`` console script."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    configure_logging(_log_level(args.verbose))
     return args.func(args)
 
 

@@ -24,6 +24,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from rag_engine.observability import LOG_LEVELS
+
 # Default directory (relative to the working directory) where the vector index
 # is persisted. Kept out of version control via .gitignore.
 DEFAULT_INDEX_DIR = ".rag_index"
@@ -177,6 +179,10 @@ class RagConfig:
         anonymize_model: spaCy model name used by the presidio anonymizer.
         anonymize_threshold: Minimum detector confidence for the presidio
             anonymizer to redact an entity, within ``[0.0, 1.0]``.
+        log_level: Level for the package logger, one of
+            :data:`~rag_engine.observability.LOG_LEVELS`. Only applied when an
+            application calls
+            :func:`~rag_engine.observability.configure_logging`.
         index_dir: Directory where the vector index is saved/loaded.
 
     Raises:
@@ -207,6 +213,9 @@ class RagConfig:
     anonymize_model: str = "en_core_web_sm"
     anonymize_threshold: float = 0.5
 
+    # Observability
+    log_level: str = "WARNING"
+
     # Storage
     index_dir: Path = field(default_factory=lambda: Path(DEFAULT_INDEX_DIR))
 
@@ -219,10 +228,12 @@ class RagConfig:
         self.embedder = _canonical(self.embedder, _EMBEDDER_ALIASES)
         self.llm_provider = _canonical(self.llm_provider, {})
         self.anonymizer = _canonical(self.anonymizer, _ANONYMIZER_ALIASES)
+        self.log_level = self.log_level.strip().upper()
 
         _require_one_of("embedder", self.embedder, EMBEDDERS)
         _require_one_of("llm_provider", self.llm_provider, LLM_PROVIDERS)
         _require_one_of("anonymizer", self.anonymizer, ANONYMIZERS)
+        _require_one_of("log_level", self.log_level, LOG_LEVELS)
 
         _require_positive("embedding_dim", self.embedding_dim)
         _require_positive("top_k", self.top_k)
@@ -285,5 +296,6 @@ class RagConfig:
             anonymizer=_get_str("RAG_ANONYMIZER", "none"),
             anonymize_model=_get_str("RAG_ANONYMIZE_MODEL", "en_core_web_sm"),
             anonymize_threshold=_get_float("RAG_ANONYMIZE_THRESHOLD", 0.5),
+            log_level=_get_str("RAG_LOG_LEVEL", "WARNING"),
             index_dir=Path(index_dir),
         )
