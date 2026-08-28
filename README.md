@@ -239,6 +239,33 @@ from rag_engine.observability import configure_logging
 configure_logging("INFO")  # or use your application's own handlers
 ```
 
+## Scale, and where this design stops
+
+Measured on an ordinary laptop, with chunks of about 600 characters at the
+default `dim=256`:
+
+| Chunks | Memory | On disk | Query |
+| --- | --- | --- | --- |
+| 10 000 | ~51 MB | 17 MB | 0.1 ms |
+| 100 000 | ~480 MB | 173 MB | 1.9 ms |
+| 500 000 | ~2.2 GB | 864 MB | 9.5 ms |
+
+Each row was measured, not extrapolated: peak resident memory while building the
+index, the size of the two files on disk, and the mean of twenty queries.
+
+Everything is linear in the number of chunks, in both memory and query time: a
+query is an exact scan of the whole matrix, never an approximation. Two limits
+follow, and neither is a bug to be reported:
+
+- **The index lives in memory.** A corpus that does not fit is out of scope for
+  this design. An approximate index (FAISS) or a vector database is the right
+  answer there, and the `add`/`search`/`save`/`load` interface is deliberately
+  the shape one of those would expose, so the swap stays local.
+- **Ingestion rebuilds the index.** `ingest()` re-reads and re-embeds the whole
+  folder; there is no incremental update. For a corpus of this size that is
+  seconds, and it keeps the index a pure function of the corpus on disk, which
+  is what makes rebuilding a safe recovery from any bad state.
+
 ## Development
 
 ```bash
