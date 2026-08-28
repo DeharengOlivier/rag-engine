@@ -12,6 +12,11 @@ the same defaults that make the library run offline also apply here.
 
 It is the only place that configures logging: quiet by default, ``-v`` for the
 engine's INFO trace on stderr, ``-vv`` for DEBUG.
+
+It is also where an exception becomes a message and an exit code, since a
+traceback tells a user who mistyped a setting nothing they can act on. Exit
+codes: ``0`` success, ``1`` a run that failed, ``2`` a bad configuration (the
+code argparse already uses for a bad invocation).
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ import sys
 
 from rag_engine.anonymizer import build_anonymizer
 from rag_engine.config import RagConfig
+from rag_engine.errors import ConfigError
 from rag_engine.evaluation import evaluate, load_eval_cases
 from rag_engine.observability import configure_logging
 from rag_engine.pipeline import RagPipeline
@@ -54,7 +60,7 @@ def _cmd_query(args: argparse.Namespace) -> int:
             "No index found. Run 'rag ingest <folder>' first.",
             file=sys.stderr,
         )
-        return 1
+        return EXIT_FAILED
 
     if args.json:
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
@@ -177,13 +183,35 @@ def _log_level(verbosity: int) -> str:
     return RagConfig.from_env().log_level
 
 
+#: Exit codes, so callers and tests name them rather than repeat the integers.
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_BAD_CONFIG = 2
+
+
 def main(argv: list[str] | None = None) -> int:
-    """Entry point for the ``rag`` console script."""
+    """Entry point for the ``rag`` console script.
+
+    Args:
+        argv: Arguments to parse. Defaults to ``sys.argv[1:]``.
+
+    Returns:
+        :data:`EXIT_OK`, :data:`EXIT_FAILED`, or :data:`EXIT_BAD_CONFIG`.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
-    configure_logging(_log_level(args.verbose))
-    # argparse hands back an untyped callable; every _cmd_* returns an exit code.
-    exit_code: int = args.func(args)
+    try:
+        configure_logging(_log_level(args.verbose))
+        # argparse hands back an untyped callable; every _cmd_* returns a code.
+        exit_code: int = args.func(args)
+    except ConfigError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return EXIT_BAD_CONFIG
+    except (OSError, ValueError) as exc:
+        # OSError covers the filesystem (a missing corpus, an unwritable index);
+        # ValueError covers an index or an input the engine cannot trust.
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
     return exit_code
 
 

@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import logging
 
+from rag_engine.errors import ConfigError
+
 #: Root logger for the package. Every module logger is a child of this one.
 LOGGER_NAME = "rag_engine"
 
@@ -53,7 +55,7 @@ def configure_logging(level: str = "INFO") -> logging.Logger:
     normalized = level.strip().upper()
     if normalized not in LOG_LEVELS:
         options = ", ".join(LOG_LEVELS)
-        raise ValueError(f"log_level must be one of: {options}. Got {level!r}.")
+        raise ConfigError(f"log_level must be one of: {options}. Got {level!r}.")
 
     logger = logging.getLogger(LOGGER_NAME)
     for handler in [h for h in logger.handlers if h.name == _HANDLER_NAME]:

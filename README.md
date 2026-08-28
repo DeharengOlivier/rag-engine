@@ -175,9 +175,11 @@ are never read at import time: API keys are read lazily, only when an
 API-backed provider is actually called.
 
 Every variable is validated when the configuration is built. A value that cannot
-be parsed, or that falls outside the range below, raises immediately with a
-message naming the variable: a typo in a deployment config fails at startup
-instead of quietly changing how the engine behaves. A blank value counts as unset.
+be parsed, or that falls outside the range below, raises `ConfigError`
+immediately with a message naming the variable: a typo in a deployment config
+fails at startup instead of quietly changing how the engine behaves. A blank
+value counts as unset. The CLI turns that into a message and exit code `2`
+rather than a traceback (`0` success, `1` a run that failed, `2` a bad setting).
 
 | Variable | Default | Description |
 | --- | --- | --- |

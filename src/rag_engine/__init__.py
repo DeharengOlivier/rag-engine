@@ -3,6 +3,8 @@
 The package is organized into single-responsibility modules:
 
 - ``config``      : runtime configuration loaded from environment variables.
+- ``errors``      : the exception types the package raises.
+- ``observability``: the package logger, and its configuration for applications.
 - ``ingestion``   : load and chunk text documents from a folder.
 - ``anonymizer``  : PII redaction (offline regex + optional Presidio) at ingestion.
 - ``embeddings``  : pluggable text-to-vector embedders (offline + optional models).
@@ -19,12 +21,16 @@ so no API key or network access is required.
 
 from rag_engine.anonymizer import AnonymizationResult, build_anonymizer
 from rag_engine.config import RagConfig
+from rag_engine.errors import ConfigError
+from rag_engine.observability import configure_logging
 from rag_engine.pipeline import RagPipeline
 
 __all__ = [
     "AnonymizationResult",
+    "ConfigError",
     "RagConfig",
     "RagPipeline",
     "build_anonymizer",
+    "configure_logging",
 ]
 __version__ = "0.1.0"

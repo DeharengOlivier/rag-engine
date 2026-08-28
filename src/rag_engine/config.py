@@ -24,6 +24,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from rag_engine.errors import ConfigError
 from rag_engine.observability import LOG_LEVELS
 
 # Default directory (relative to the working directory) where the vector index
@@ -88,7 +89,7 @@ def _get_int(name: str, default: int) -> int:
     try:
         return int(raw.strip())
     except ValueError:
-        raise ValueError(
+        raise ConfigError(
             f"{name} must be an integer, got {raw!r}. "
             f"Unset it to use the default ({default})."
         ) from None
@@ -113,7 +114,7 @@ def _get_float(name: str, default: float) -> float:
     try:
         return float(raw.strip())
     except ValueError:
-        raise ValueError(
+        raise ConfigError(
             f"{name} must be a number, got {raw!r}. "
             f"Unset it to use the default ({default})."
         ) from None
@@ -129,19 +130,19 @@ def _require_one_of(field_name: str, value: str, allowed: tuple[str, ...]) -> No
     """Raise unless ``value`` is one of ``allowed``."""
     if value not in allowed:
         options = ", ".join(allowed)
-        raise ValueError(f"{field_name} must be one of: {options}. Got {value!r}.")
+        raise ConfigError(f"{field_name} must be one of: {options}. Got {value!r}.")
 
 
 def _require_positive(field_name: str, value: int) -> None:
     """Raise unless ``value`` is strictly positive."""
     if value <= 0:
-        raise ValueError(f"{field_name} must be strictly positive, got {value}.")
+        raise ConfigError(f"{field_name} must be strictly positive, got {value}.")
 
 
 def _require_within(field_name: str, value: float, low: float, high: float) -> None:
     """Raise unless ``low <= value <= high``."""
     if not low <= value <= high:
-        raise ValueError(f"{field_name} must be within [{low}, {high}], got {value}.")
+        raise ConfigError(f"{field_name} must be within [{low}, {high}], got {value}.")
 
 
 @dataclass
@@ -236,7 +237,7 @@ class RagConfig:
         _require_positive("chunk_size", self.chunk_size)
 
         if not 0 <= self.chunk_overlap < self.chunk_size:
-            raise ValueError(
+            raise ConfigError(
                 "chunk_overlap must be within [0, chunk_size), "
                 f"got {self.chunk_overlap} for chunk_size {self.chunk_size}."
             )
@@ -247,12 +248,12 @@ class RagConfig:
         _require_within("anonymize_threshold", self.anonymize_threshold, 0.0, 1.0)
 
         if self.llm_timeout_seconds <= 0:
-            raise ValueError(
+            raise ConfigError(
                 "llm_timeout_seconds must be strictly positive, got "
                 f"{self.llm_timeout_seconds}."
             )
         if not 0 <= self.llm_max_retries <= MAX_LLM_RETRIES:
-            raise ValueError(
+            raise ConfigError(
                 f"llm_max_retries must be within [0, {MAX_LLM_RETRIES}], got "
                 f"{self.llm_max_retries}."
             )
