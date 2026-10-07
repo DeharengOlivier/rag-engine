@@ -15,3 +15,7 @@ class ConfigError(ValueError):
     configured wrongly" from "this run failed", which deserve different
     handling: the first is fixed by editing the environment, the second is not.
     """
+
+
+class ProviderError(RuntimeError):
+    """A provider call failed; the message is safe to display without payloads."""

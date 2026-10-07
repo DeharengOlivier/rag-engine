@@ -27,7 +27,7 @@ import sys
 
 from rag_engine.anonymizer import build_anonymizer
 from rag_engine.config import RagConfig
-from rag_engine.errors import ConfigError
+from rag_engine.errors import ConfigError, ProviderError
 from rag_engine.evaluation import evaluate, load_eval_cases
 from rag_engine.observability import configure_logging
 from rag_engine.pipeline import RagPipeline
@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return EXIT_BAD_CONFIG
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, ProviderError) as exc:
         # OSError covers the filesystem (a missing corpus, an unwritable index);
         # ValueError covers an index or an input the engine cannot trust.
         print(f"Error: {exc}", file=sys.stderr)

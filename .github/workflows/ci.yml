@@ -75,3 +75,15 @@ jobs:
         run: pip-audit --skip-editable
       - name: Static analysis
         run: bandit -r src -q
+
+  mistral-sdk:
+    name: Native Mistral SDK contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,mistral]"
+      - run: pytest tests/test_mistral.py tests/test_mistral_sdk.py
+      - run: pip-audit --skip-editable

@@ -1,6 +1,6 @@
 """Answer generators (LLM providers) behind a common interface.
 
-Three providers are offered:
+Four providers are offered:
 
 - :class:`ExtractiveLLM` (default): a no-dependency, offline generator. It does
   not call any model; it stitches the retrieved context into a readable answer.
@@ -13,9 +13,11 @@ Three providers are offered:
 - :class:`OpenAILLM` (optional): calls the OpenAI Chat Completions API. The
   ``openai`` package and ``OPENAI_API_KEY`` are read lazily, at call time.
 
-Both API-backed providers bound every outbound call: a timeout and a finite
-number of retries, taken from the configuration. The SDKs handle the exponential
-backoff and jitter between attempts, and the client is built once per provider
+- :class:`MistralLLM` (optional): uses the native Mistral SDK and MISTRAL_API_KEY.
+
+All API-backed providers bound every outbound call: a timeout and a finite
+number of retries, taken from the configuration. Retries use exponential backoff
+and jitter; the client is built once per provider
 instance so the connection pool is reused.
 
 All providers receive the question plus the retrieved context blocks and return
@@ -27,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import time
 from typing import Any, Protocol, runtime_checkable
 
@@ -35,6 +38,7 @@ from rag_engine.config import (
     DEFAULT_LLM_TIMEOUT_SECONDS,
     RagConfig,
 )
+from rag_engine.errors import ConfigError, ProviderError
 from rag_engine.observability import duration_ms
 from rag_engine.vectorstore import SearchResult
 
@@ -243,6 +247,123 @@ class OpenAILLM:
         return (response.choices[0].message.content or "").strip()
 
 
+class MistralLLM:
+    """Native Mistral chat provider; SDK, key and client are loaded on first use.
+
+    SDK retries are disabled so max_retries is an attempt count, not the SDK's
+    elapsed-time budget. Only explicit transient HTTP responses are retried;
+    transport failures are not retried because generation may already be billed.
+    """
+
+    def __init__(
+        self,
+        model: str = "mistral-small-latest",
+        timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_LLM_MAX_RETRIES,
+    ) -> None:
+        config = RagConfig(
+            llm_provider="mistral",
+            llm_model=model,
+            llm_timeout_seconds=timeout_seconds,
+            llm_max_retries=max_retries,
+        )
+        self._model = config.llm_model
+        self._timeout_seconds = timeout_seconds
+        self._max_retries = max_retries
+        self._client: Any = None
+
+    def _get_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        try:
+            from mistralai.client import Mistral
+        except ImportError as exc:
+            raise ConfigError(
+                'Install Mistral with pip install "rag-engine[mistral]", or set '
+                "RAG_LLM_PROVIDER=extractive to run offline."
+            ) from exc
+        key = os.environ.get("MISTRAL_API_KEY")
+        if not key:
+            raise ConfigError(
+                "MISTRAL_API_KEY is not set; use extractive to run offline."
+            )
+        self._client = Mistral(
+            api_key=key,
+            timeout_ms=max(1, int(self._timeout_seconds * 1000)),
+            retry_config=None,
+        )
+        return self._client
+
+    def generate(self, question: str, contexts: list[SearchResult]) -> str:
+        client = self._get_client()
+        from mistralai.client.errors import MistralError
+
+        started_at = time.perf_counter()
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = client.chat.complete(
+                    model=self._model,
+                    max_tokens=1024,
+                    messages=[
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {
+                            "role": "user",
+                            "content": f"Context:\n{_format_context_block(contexts)}\n\n"
+                            f"Question: {question}\n\n"
+                            "Cite sources by their bracketed numbers.",
+                        },
+                    ],
+                )
+                break
+            except MistralError as exc:
+                delay = _mistral_retry_delay(exc, attempt)
+                if attempt == self._max_retries or delay is None:
+                    # Provider error bodies may echo private prompts or credentials.
+                    raise ProviderError(
+                        f"Mistral request failed (HTTP {exc.status_code})."
+                    ) from None
+                time.sleep(delay)
+            except Exception:
+                # This external SDK boundary can expose payloads in transport or
+                # validation exceptions. Preserve failure, but not private details.
+                raise ProviderError(
+                    "Mistral request failed (transport or SDK error)."
+                ) from None
+        if not response.choices:
+            raise ProviderError("Mistral returned no answer choices.")
+        content = response.choices[0].message.content
+        if isinstance(content, str):
+            answer = content.strip()
+        else:
+            answer = "".join(
+                block.text for block in (content or []) if block.type == "text"
+            ).strip()
+        if not answer:
+            raise ProviderError("Mistral returned no text answer.")
+        logger.info(
+            "llm call provider=mistral model=%s contexts=%d duration_ms=%s",
+            self._model,
+            len(contexts),
+            duration_ms(started_at, time.perf_counter()),
+        )
+        return answer
+
+
+def _mistral_retry_delay(error: Any, attempt: int) -> float | None:
+    """Honor Retry-After without allowing an unbounded provider-directed sleep."""
+    if error.status_code not in {429, 500, 502, 503, 504}:
+        return None
+    header = error.raw_response.headers.get("retry-after")
+    if header:
+        try:
+            delay = float(header)
+        except ValueError:
+            # Date-form or malformed headers: fail rather than retry too early.
+            return None
+        return delay if 0 <= delay <= 30 else None
+    return float(2**attempt) + random.SystemRandom().uniform(0, 0.25)
+
+
 def build_llm(config: RagConfig) -> LLM:
     """Instantiate the LLM provider selected in ``config``.
 
@@ -266,7 +387,13 @@ def build_llm(config: RagConfig) -> LLM:
             timeout_seconds=config.llm_timeout_seconds,
             max_retries=config.llm_max_retries,
         )
+    if config.llm_provider == "mistral":
+        return MistralLLM(
+            model=config.llm_model,
+            timeout_seconds=config.llm_timeout_seconds,
+            max_retries=config.llm_max_retries,
+        )
     raise ValueError(
         f"Unknown LLM provider '{config.llm_provider}'. "
-        "Expected 'extractive', 'anthropic' or 'openai'."
+        "Expected 'extractive', 'anthropic', 'openai' or 'mistral'."
     )

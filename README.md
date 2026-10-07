@@ -17,7 +17,7 @@ The whole system runs fully offline by default. The default embedder is a
 dependency-free hashing embedder (pure numpy), and the default answer generator
 is an extractive provider that stitches together the retrieved context without
 calling any model. There is no required API key and no network call. You can
-optionally swap in `sentence-transformers` embeddings or an Anthropic / OpenAI
+optionally swap in `sentence-transformers` embeddings or a Mistral / Anthropic / OpenAI
 LLM through configuration.
 
 ## Architecture
@@ -55,7 +55,7 @@ LLM through configuration.
                           |
                           v
                 +-------------------+
-                |  LLM generation   |  extractive (offline) | anthropic | openai
+                |  LLM generation   |  extractive (offline) | anthropic | openai | mistral
                 +---------+---------+
                           |
                           v
@@ -184,8 +184,9 @@ rather than a traceback (`0` success, `1` a run that failed, `2` a bad setting).
 | Variable | Default | Description |
 | --- | --- | --- |
 | `RAG_EMBEDDER` | `hashing` | `hashing` (offline) or `sentence-transformers` (optional). |
-| `RAG_LLM_PROVIDER` | `extractive` | `extractive` (offline), `anthropic`, or `openai`. |
+| `RAG_LLM_PROVIDER` | `extractive` | `extractive` (offline), `anthropic`, `openai`, or `mistral`. |
 | `ANTHROPIC_API_KEY` | (unset) | Optional. Only used by the `anthropic` provider. |
+| `MISTRAL_API_KEY` | (unset) | Optional. Only used by the native `mistral` provider. |
 | `OPENAI_API_KEY` | (unset) | Optional. Only used by the `openai` provider. |
 | `RAG_TOP_K` | `4` | Number of chunks retrieved per query. Must be > 0. |
 | `RAG_CHUNK_SIZE` | `600` | Target chunk size in characters. Must be > 0. |
@@ -196,7 +197,7 @@ rather than a traceback (`0` success, `1` a run that failed, `2` a bad setting).
 | `RAG_ANONYMIZE_THRESHOLD` | `0.5` | Minimum detector confidence for `presidio` to redact an entity. Must be within `[0.0, 1.0]`. |
 | `RAG_EMBEDDING_DIM` | `256` | Vector dimension for the hashing embedder. Must be > 0. |
 | `RAG_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Model name for the sentence-transformers embedder. |
-| `RAG_LLM_MODEL` | `claude-3-5-haiku-latest` | Model name for the anthropic/openai providers. |
+| `RAG_LLM_MODEL` | provider default | Mistral: `mistral-small-latest`; OpenAI: `gpt-4o-mini`; Anthropic: `claude-3-5-haiku-latest`. |
 | `RAG_LLM_TIMEOUT_SECONDS` | `30` | Timeout on every API-backed call. Must be > 0. |
 | `RAG_LLM_MAX_RETRIES` | `2` | Retries the provider SDK may attempt, with exponential backoff and jitter. Must be within `[0, 5]`. |
 | `RAG_INDEX_DIR` | `.rag_index` | Directory where the vector index is saved. |
@@ -206,7 +207,7 @@ Optional extras (only needed if you switch providers):
 
 ```bash
 pip install -e ".[embeddings]"  # sentence-transformers
-pip install -e ".[llm]"         # anthropic + openai
+pip install -e ".[llm]"         # anthropic + openai + mistral
 pip install -e ".[pii]"         # presidio + spacy (PII anonymization)
 pip install -e ".[dev]"         # pytest
 ```
@@ -311,7 +312,7 @@ rag-engine/
     embeddings.py           # hashing (default) and sentence-transformers embedders
     vectorstore.py          # numpy vector store with cosine similarity + persistence
     retriever.py            # query -> top-k chunks
-    llm.py                  # extractive (default), anthropic, openai providers
+    llm.py                  # extractive (default), anthropic, openai, mistral providers
     guardrails.py           # grounding gate, citations, safe refusal
     pipeline.py             # RagPipeline tying it all together
     evaluation.py           # recall@k + keyword-score harness
@@ -322,3 +323,35 @@ rag-engine/
 ## License
 
 MIT. Copyright (c) 2026 Olivier Dehareng. See [LICENSE](LICENSE).
+
+### Native Mistral provider
+
+Install only the Mistral SDK extra, then set your key in the shell (never commit it):
+
+```bash
+pip install -e ".[mistral]"
+export RAG_LLM_PROVIDER=mistral
+# Set MISTRAL_API_KEY through your secret manager or shell environment.
+rag ingest data/sample
+rag query "When is recycling collected in Maplewood?"
+```
+
+`RAG_LLM_MODEL` overrides `mistral-small-latest`. The integration uses the
+[official Mistral Python SDK](https://github.com/mistralai/client-python), not an
+OpenAI compatibility endpoint. Imports and credentials are lazy; the default
+extractive engine still needs neither the SDK nor a key.
+
+Mistral receives the question and retrieved chunks. Use only documents you are
+allowed to send to this processor. Generation is limited to 1,024 output tokens
+per attempt. `RAG_LLM_TIMEOUT_SECONDS` is the per-request I/O timeout;
+`RAG_LLM_MAX_RETRIES` allows that many additional attempts for HTTP
+429/500/502/503/504 only. Backoff is exponential with jitter, or a numeric
+`Retry-After` up to 30 seconds. Unsupported or excessive `Retry-After` fails
+without retry; ambiguous transport failures are not retried. Retries can incur
+additional charges. No prompts, answers or keys are written to engine logs.
+
+The existing similarity gate still refuses before generation when retrieval is
+insufficient, and source citations remain attached by the pipeline. These are
+retrieval safeguards, not proof of factual grounding or prompt-injection resistance.
+SDK contract tests run against an in-memory HTTP transport. Live model evaluation
+is separate: see [readiness](docs/READINESS.md) for current verification status.

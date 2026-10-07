@@ -1,0 +1,19 @@
+name: Mistral live evaluation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[mistral]"
+      - name: Synthetic evaluation v1 (3 calls, at most 3072 output tokens)
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        run: python scripts/evaluate_mistral.py
