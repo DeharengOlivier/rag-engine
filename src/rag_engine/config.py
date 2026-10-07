@@ -20,6 +20,7 @@ Design choices worth noting:
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,7 +35,7 @@ DEFAULT_INDEX_DIR = ".rag_index"
 # The accepted values for the three enum-like settings. Kept as ordered tuples so
 # error messages list them in a stable, documented order.
 EMBEDDERS = ("hashing", "sentence-transformers")
-LLM_PROVIDERS = ("extractive", "anthropic", "openai")
+LLM_PROVIDERS = ("extractive", "anthropic", "openai", "mistral")
 ANONYMIZERS = ("none", "regex", "presidio")
 
 # Spellings accepted on input and rewritten to the canonical value above, so the
@@ -159,7 +160,7 @@ class RagConfig:
         embedding_model: Model name used only by the sentence-transformers embedder.
         embedding_dim: Dimensionality of the hashing embedder's vectors, > 0.
         llm_provider: Which answer generator to use, one of :data:`LLM_PROVIDERS`.
-        llm_model: Model name used by the anthropic/openai providers.
+        llm_model: Model name; an empty value selects the provider default.
         llm_timeout_seconds: Timeout applied to every API-backed call, > 0.
         llm_max_retries: Retries the provider SDK may attempt on a failed call,
             within ``[0, MAX_LLM_RETRIES]``. The SDKs back off exponentially
@@ -193,7 +194,7 @@ class RagConfig:
 
     # LLM generation
     llm_provider: str = "extractive"
-    llm_model: str = "claude-3-5-haiku-latest"
+    llm_model: str = ""
     llm_timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS
     llm_max_retries: int = DEFAULT_LLM_MAX_RETRIES
 
@@ -229,6 +230,13 @@ class RagConfig:
 
         _require_one_of("embedder", self.embedder, EMBEDDERS)
         _require_one_of("llm_provider", self.llm_provider, LLM_PROVIDERS)
+        if not self.llm_model.strip():
+            self.llm_model = {
+                "extractive": "claude-3-5-haiku-latest",
+                "anthropic": "claude-3-5-haiku-latest",
+                "openai": "gpt-4o-mini",
+                "mistral": "mistral-small-latest",
+            }[self.llm_provider]
         _require_one_of("anonymizer", self.anonymizer, ANONYMIZERS)
         _require_one_of("log_level", self.log_level, LOG_LEVELS)
 
@@ -247,7 +255,7 @@ class RagConfig:
         _require_within("similarity_threshold", self.similarity_threshold, -1.0, 1.0)
         _require_within("anonymize_threshold", self.anonymize_threshold, 0.0, 1.0)
 
-        if self.llm_timeout_seconds <= 0:
+        if not math.isfinite(self.llm_timeout_seconds) or self.llm_timeout_seconds <= 0:
             raise ConfigError(
                 "llm_timeout_seconds must be strictly positive, got "
                 f"{self.llm_timeout_seconds}."
@@ -279,7 +287,7 @@ class RagConfig:
             embedding_model=_get_str("RAG_EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
             embedding_dim=_get_int("RAG_EMBEDDING_DIM", 256),
             llm_provider=_get_str("RAG_LLM_PROVIDER", "extractive"),
-            llm_model=_get_str("RAG_LLM_MODEL", "claude-3-5-haiku-latest"),
+            llm_model=_get_str("RAG_LLM_MODEL", ""),
             llm_timeout_seconds=_get_float(
                 "RAG_LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS
             ),
