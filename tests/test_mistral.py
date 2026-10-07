@@ -10,6 +10,7 @@ from unittest.mock import Mock
 import pytest
 
 from rag_engine.config import RagConfig
+from rag_engine.errors import ConfigError, ProviderError
 from rag_engine.ingestion import Chunk
 from rag_engine.llm import MistralLLM, build_llm
 from rag_engine.pipeline import RagPipeline
@@ -74,13 +75,13 @@ def test_native_request_and_safe_logs(sdk, caplog):
 def test_lazy_missing_dependency(monkeypatch):
     monkeypatch.setitem(sys.modules, "mistralai.client", None)
     llm = MistralLLM()
-    with pytest.raises(ImportError, match="pip install"):
+    with pytest.raises(ConfigError, match="pip install"):
         llm.generate("q", [])
 
 
 def test_missing_key(sdk, monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY")
-    with pytest.raises(RuntimeError, match="MISTRAL_API_KEY"):
+    with pytest.raises(ConfigError, match="MISTRAL_API_KEY"):
         MistralLLM().generate("q", [])
     sdk.factory.assert_not_called()
 
@@ -158,7 +159,7 @@ def test_zero_retries(sdk):
 
 def test_transport_failures_propagate_without_retry(sdk):
     sdk.client.chat.complete.side_effect = TimeoutError("timeout")
-    with pytest.raises(TimeoutError):
+    with pytest.raises(ProviderError, match="transport or SDK error"):
         MistralLLM().generate("q", [])
     assert sdk.client.chat.complete.call_count == 1
 
@@ -192,3 +193,29 @@ def test_pipeline_preserves_citations_and_refuses_before_api(sdk, tmp_path):
 def test_invalid_timeout_rejected_before_client(timeout):
     with pytest.raises(ValueError, match="llm_timeout_seconds"):
         MistralLLM(timeout_seconds=timeout)
+
+
+@pytest.mark.parametrize("failure,expected", [("key", 2), ("http", 1), ("transport", 1)])
+def test_cli_reports_safe_provider_failure(
+    sdk, tmp_path, monkeypatch, capsys, failure, expected
+):
+    from pathlib import Path
+
+    from rag_engine.cli import main
+
+    monkeypatch.setenv("RAG_LLM_PROVIDER", "mistral")
+    monkeypatch.setenv("RAG_INDEX_DIR", str(tmp_path / "index"))
+    assert (
+        main(["ingest", str(Path(__file__).resolve().parent.parent / "data/sample")]) == 0
+    )
+    if failure == "key":
+        monkeypatch.delenv("MISTRAL_API_KEY")
+    elif failure == "http":
+        sdk.client.chat.complete.side_effect = sdk.error(401)
+    else:
+        sdk.client.chat.complete.side_effect = TimeoutError("private payload")
+    assert main(["query", "When is recycling collected in Maplewood?"]) == expected
+    error = capsys.readouterr().err
+    assert "Mistral" in error or "MISTRAL_API_KEY" in error
+    assert "private" not in error
+    assert "Traceback" not in error

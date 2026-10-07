@@ -38,6 +38,7 @@ from rag_engine.config import (
     DEFAULT_LLM_TIMEOUT_SECONDS,
     RagConfig,
 )
+from rag_engine.errors import ConfigError, ProviderError
 from rag_engine.observability import duration_ms
 from rag_engine.vectorstore import SearchResult
 
@@ -277,13 +278,13 @@ class MistralLLM:
         try:
             from mistralai.client import Mistral
         except ImportError as exc:
-            raise ImportError(
+            raise ConfigError(
                 'Install Mistral with pip install "rag-engine[mistral]", or set '
                 "RAG_LLM_PROVIDER=extractive to run offline."
             ) from exc
         key = os.environ.get("MISTRAL_API_KEY")
         if not key:
-            raise RuntimeError(
+            raise ConfigError(
                 "MISTRAL_API_KEY is not set; use extractive to run offline."
             )
         self._client = Mistral(
@@ -318,12 +319,18 @@ class MistralLLM:
                 delay = _mistral_retry_delay(exc, attempt)
                 if attempt == self._max_retries or delay is None:
                     # Provider error bodies may echo private prompts or credentials.
-                    raise RuntimeError(
+                    raise ProviderError(
                         f"Mistral request failed (HTTP {exc.status_code})."
                     ) from None
                 time.sleep(delay)
+            except Exception:
+                # This external SDK boundary can expose payloads in transport or
+                # validation exceptions. Preserve failure, but not private details.
+                raise ProviderError(
+                    "Mistral request failed (transport or SDK error)."
+                ) from None
         if not response.choices:
-            raise RuntimeError("Mistral returned no answer choices.")
+            raise ProviderError("Mistral returned no answer choices.")
         content = response.choices[0].message.content
         if isinstance(content, str):
             answer = content.strip()
@@ -332,7 +339,7 @@ class MistralLLM:
                 block.text for block in (content or []) if block.type == "text"
             ).strip()
         if not answer:
-            raise RuntimeError("Mistral returned no text answer.")
+            raise ProviderError("Mistral returned no text answer.")
         logger.info(
             "llm call provider=mistral model=%s contexts=%d duration_ms=%s",
             self._model,

@@ -20,7 +20,7 @@ No new tenant authorization, inbound API, payment processing or persistent store
 | Lint, formatting, strict types | PASS | ruff check, ruff format --check, mypy; CI quality job |
 | Coverage and contract tests | PASS | pytest --cov --cov-fail-under=97; fake SDK and real SDK with MockTransport; offline CI matrix plus dedicated SDK job |
 | Protected main | PASS | GitHub branch protection read 2026-10-07: six existing required checks, strict updates, linear history, no force pushes/deletion |
-| Independent review | NOT_VERIFIED | Review required before merge; record outcome in PR |
+| Independent review | PASS | Independent agent review of initial change and CLI fix; one P2 corrected, 42 relevant tests rerun, no remaining code findings; see PR #3 |
 | CI isolation | PASS | GitHub-hosted ubuntu-latest, read-only contents, no secrets in deterministic tests |
 | Native SDK dependency audit | PASS | mistralai 2.10.1, pip-audit --skip-editable: no known vulnerabilities |
 | SDK version reproducibility | PARTIAL | Compatible range >=2.10.1,<3; contract job detects drift; not a frozen application deployment |
